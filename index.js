@@ -58,7 +58,7 @@ async function run() {
             const user = await usersCollection.findOne(query);
 
             if (user) {
-                const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
+                const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '10h' })
                 return res.send({ accessToken: token });
             }
             res.status(403).send({ accessToken: '' });
@@ -122,6 +122,22 @@ async function run() {
         app.get('/admin/sellers', verifyJWT, verifyAdmin, async (req, res) => {
             const query = { role: "seller" };
             const result = await usersCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.put('/admin/sellers/:id', verifyJWT, verifyAdmin, async (req, res) => {
+
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const options = { upsert: true };
+            const updatedDoc = {
+                $set: {
+                    verified: true
+                }
+            }
+
+            const result = await usersCollection.updateOne(filter, updatedDoc, options);
+
             res.send(result);
         })
 
