@@ -51,6 +51,17 @@ async function run() {
             next();
         }
 
+        // Verify Seller
+        const verifySeller = async (req, res, next) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await usersCollection.findOne(query);
+            if (user?.role !== 'seller') {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            next();
+        }
+
         // Generate JWT token
         app.get('/jwt', async (req, res) => {
             const email = req.query.email;
@@ -99,6 +110,14 @@ async function run() {
             const query = { email };
             const user = await usersCollection.findOne(query);
             res.send({ isAdmin: user?.role === 'admin' });
+        })
+
+        // Checked Login user is seller
+        app.get('/users/seller/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email };
+            const user = await usersCollection.findOne(query);
+            res.send({ isSeller: user?.role === 'seller' });
         })
 
 
