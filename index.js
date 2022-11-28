@@ -38,7 +38,8 @@ async function run() {
     try {
 
         const usersCollection = client.db("mobilicity").collection("users");
-
+        const categoriesCollection = client.db("mobilicity").collection("categories");
+        const productsCollection = client.db("mobilicity").collection("products");
 
         // Verify Admin
         const verifyAdmin = async (req, res, next) => {
@@ -166,6 +167,58 @@ async function run() {
             //console.log(id);
             const filter = { _id: ObjectId(id) };
             const result = await usersCollection.deleteOne(filter);
+            res.send(result);
+        })
+
+        // Get all categories
+        app.get('/categories', async (req, res) => {
+            const query = {};
+            const result = await categoriesCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.post('/sellers/products', verifyJWT, verifySeller, async (req, res) => {
+            const product = req.body;
+            const result = await productsCollection.insertOne(product);
+            res.send(result);
+        })
+
+        app.get('/sellers/products', verifyJWT, verifySeller, async (req, res) => {
+            const email = req.query.email;
+            const decodedEmail = req.decoded.email;
+
+            if (email !== decodedEmail) {
+                return res.status(403).send({ message: "forbidden access" });
+            }
+            //console.log(decodedEmail);
+            const query = {
+                email: email
+            };
+
+            const products = await productsCollection.find(query).toArray();
+            res.send(products);
+        })
+
+        app.put('/sellers/products/:id', verifyJWT, verifySeller, async (req, res) => {
+
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    advertise: true
+                }
+            }
+
+            const result = await productsCollection.updateOne(filter, updatedDoc);
+
+            res.send(result);
+        })
+
+        app.delete('/sellers/products/:id', verifyJWT, verifySeller, async (req, res) => {
+            const id = req.params.id;
+            //console.log(id);
+            const filter = { _id: ObjectId(id) };
+            const result = await productsCollection.deleteOne(filter);
             res.send(result);
         })
 
