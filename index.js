@@ -13,6 +13,8 @@ app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.imn2pwq.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+
+// Verify JWT token
 function verifyJWT(req, res, next) {
     const authHeader = req.headers.authorization;
     //console.log(authHeader);
@@ -38,6 +40,7 @@ async function run() {
         const usersCollection = client.db("mobilicity").collection("users");
 
 
+        // Verify Admin
         const verifyAdmin = async (req, res, next) => {
             const decodedEmail = req.decoded.email;
             const query = { email: decodedEmail };
@@ -48,6 +51,7 @@ async function run() {
             next();
         }
 
+        // Generate JWT token
         app.get('/jwt', async (req, res) => {
             const email = req.query.email;
             const query = { email: email };
@@ -61,6 +65,7 @@ async function run() {
         })
 
 
+        // Create User
         app.post('/users', async (req, res) => {
 
             const user = req.body;
@@ -88,12 +93,45 @@ async function run() {
             }
         })
 
+        // Checked Login user is admin
         app.get('/users/admin/:email', async (req, res) => {
             const email = req.params.email;
             const query = { email };
             const user = await usersCollection.findOne(query);
             res.send({ isAdmin: user?.role === 'admin' });
+        })
 
+
+        // Get all buyers with verify admin and jwt token
+        app.get('/admin/buyers', verifyJWT, verifyAdmin, async (req, res) => {
+            const query = { role: "buyer" };
+            const result = await usersCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        // Delete a buyer with verify admin and jwt token
+        app.delete('/admin/buyers/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            //console.log(id);
+            const filter = { _id: ObjectId(id) };
+            const result = await usersCollection.deleteOne(filter);
+            res.send(result);
+        })
+
+        // Get all sellers with verify admin and jwt token
+        app.get('/admin/sellers', verifyJWT, verifyAdmin, async (req, res) => {
+            const query = { role: "seller" };
+            const result = await usersCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        // Delete a seller with verify admin and jwt token
+        app.delete('/admin/sellers/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            //console.log(id);
+            const filter = { _id: ObjectId(id) };
+            const result = await usersCollection.deleteOne(filter);
+            res.send(result);
         })
 
 
