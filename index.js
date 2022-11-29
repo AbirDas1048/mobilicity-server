@@ -63,6 +63,17 @@ async function run() {
             next();
         }
 
+        // Verify Buyer
+        const verifyBuyer = async (req, res, next) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await usersCollection.findOne(query);
+            if (user?.role !== 'buyer') {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            next();
+        }
+
         // Generate JWT token
         app.get('/jwt', async (req, res) => {
             const email = req.query.email;
@@ -119,6 +130,14 @@ async function run() {
             const query = { email };
             const user = await usersCollection.findOne(query);
             res.send({ isSeller: user?.role === 'seller' });
+        })
+
+        // Checked Login user is buyer
+        app.get('/users/buyer/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email };
+            const user = await usersCollection.findOne(query);
+            res.send({ isBuyer: user?.role === 'buyer' });
         })
 
 
@@ -184,9 +203,97 @@ async function run() {
                 availability: true
             }
 
-            const result = await productsCollection.find(query).toArray();
-            res.send(result);
+            //const result = await productsCollection.find(query).toArray();
+            const result2 = await productsCollection.aggregate([
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'email',
+                        foreignField: 'email',
+                        as: 'seller'
+                    }
+                },
+                { $match: query }
+            ]).toArray();
+            res.send(result2);
         })
+
+        app.get('/categories/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = {
+                categoryId: id
+            };
+
+            const query2 = {
+                _id: ObjectId(id)
+            };
+
+            //const result = await productsCollection.find(query).toArray();
+
+            const products = await productsCollection.aggregate([
+                { $match: query },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'email',
+                        foreignField: 'email',
+                        as: 'seller'
+                    }
+                },
+
+            ]).toArray();
+
+            const category = await categoriesCollection.findOne(query2);
+
+            res.send({ products, category });
+        })
+
+        // app.get('/v2/appointmentOptions', async (req, res) => {
+        //     const date = req.query.date;
+        //     const options = await appointmentOptionCollection.aggregate([
+        //         {
+        //             $lookup: {
+        //                 from: 'bookings',
+        //                 localField: 'name',
+        //                 foreignField: 'treatment',
+        //                 pipeline: [
+        //                     {
+        //                         $match: {
+        //                             $expr: {
+        //                                 $eq: ['$appointmentDate', date]
+        //                             }
+        //                         }
+        //                     }
+        //                 ],
+        //                 as: 'booked'
+        //             }
+        //         },
+        //         {
+        //             $project: {
+        //                 name: 1,
+        //                 price: 1,
+        //                 slots: 1,
+        //                 booked: {
+        //                     $map: {
+        //                         input: '$booked',
+        //                         as: 'book',
+        //                         in: '$$book.slot'
+        //                     }
+        //                 }
+        //             }
+        //         },
+        //         {
+        //             $project: {
+        //                 name: 1,
+        //                 price: 1,
+        //                 slots: {
+        //                     $setDifference: ['$slots', '$booked']
+        //                 }
+        //             }
+        //         }
+        //     ]).toArray();
+        //     res.send(options);
+        // })
 
         app.post('/sellers/products', verifyJWT, verifySeller, async (req, res) => {
             const product = req.body;
