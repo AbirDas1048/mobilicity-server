@@ -177,6 +177,17 @@ async function run() {
             res.send(result);
         })
 
+        app.get('/advertisedProducts', async (req, res) => {
+
+            const query = {
+                advertise: true,
+                availability: true
+            }
+
+            const result = await productsCollection.find(query).toArray();
+            res.send(result);
+        })
+
         app.post('/sellers/products', verifyJWT, verifySeller, async (req, res) => {
             const product = req.body;
             const result = await productsCollection.insertOne(product);
@@ -222,6 +233,21 @@ async function run() {
             res.send(result);
         })
 
+        // app.get('/updatePrice', async (req, res) => {
+        //     const filter = {};
+        //     const options = { upsert: true };
+        //     const updatedDoc = {
+        //         $set: {
+        //             originalPrice: "3000",
+        //             postedOn: "Nov 28, 2022"
+        //         }
+        //     }
+
+        //     const result = await productsCollection.updateMany(filter, updatedDoc, options);
+
+        //     res.send(result);
+
+        // })
 
 
     } finally {
