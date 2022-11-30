@@ -193,6 +193,24 @@ async function run() {
             res.send(result);
         })
 
+        // Get all report with verify admin and jwt token
+        app.get('/admin/reports', verifyJWT, verifyAdmin, async (req, res) => {
+            const query = {};
+            const result = await reportsCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        // Delete a report with verify admin and jwt token
+        app.delete('/admin/deleteReportedItem/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            //console.log(id);
+            const filter = { _id: ObjectId(id) };
+            const query = { productId: id };
+            const result = await productsCollection.deleteOne(filter);
+            const result2 = await reportsCollection.deleteMany(query);
+            res.send(result);
+        })
+
         // Get all categories
         app.get('/categories', async (req, res) => {
             const query = {};
