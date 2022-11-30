@@ -43,6 +43,7 @@ async function run() {
         const productsCollection = client.db("mobilicity").collection("products");
         const bookingsCollection = client.db("mobilicity").collection("bookings");
         const paymentsCollection = client.db("mobilicity").collection("payments");
+        const reportsCollection = client.db("mobilicity").collection("reports");
 
         // Verify Admin
         const verifyAdmin = async (req, res, next) => {
@@ -273,6 +274,24 @@ async function run() {
             res.send(result);
         })
 
+        app.post('/buyer/reportToAdmin', verifyJWT, verifyBuyer, async (req, res) => {
+            const report = req.body;
+
+            const query = {
+                buyerEmail: report.buyerEmail,
+                productId: report.productId
+            }
+
+            const alreadyReported = await reportsCollection.find(query).toArray();
+
+            if (alreadyReported.length) {
+                const message = `You already report this product`;
+                return res.send({ acknowledged: false, message });
+            }
+            const result = await reportsCollection.insertOne(report);
+            res.send(result);
+        })
+
         app.get('/buyer/bookingsCheck', async (req, res) => {
             const booking = req.query;
             //console.log(booking);
@@ -284,6 +303,25 @@ async function run() {
             // console.log(query);
             const alreadyBooked = await bookingsCollection.findOne(query);
             if (alreadyBooked) {
+                res.send({ acknowledged: true });
+            }
+            else {
+                res.send({ acknowledged: false });
+            }
+
+        })
+
+        app.get('/buyer/reportsCheck', async (req, res) => {
+            const report = req.query;
+            //console.log(booking);
+            const query = {
+                buyerEmail: report.buyerEmail,
+                productId: report.productId
+            }
+
+            // console.log(query);
+            const alreadyReported = await reportsCollection.findOne(query);
+            if (alreadyReported) {
                 res.send({ acknowledged: true });
             }
             else {
