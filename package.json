@@ -8,7 +8,7 @@
     "start-dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Abir Das",
+  "author": "",
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
