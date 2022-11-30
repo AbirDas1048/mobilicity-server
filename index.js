@@ -4,6 +4,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 require('dotenv').config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 const app = express();
 
@@ -41,6 +42,7 @@ async function run() {
         const categoriesCollection = client.db("mobilicity").collection("categories");
         const productsCollection = client.db("mobilicity").collection("products");
         const bookingsCollection = client.db("mobilicity").collection("bookings");
+        const paymentsCollection = client.db("mobilicity").collection("payments");
 
         // Verify Admin
         const verifyAdmin = async (req, res, next) => {
@@ -200,12 +202,15 @@ async function run() {
         app.get('/advertisedProducts', async (req, res) => {
 
             const query = {
-                advertise: true,
-                availability: true
+                $and: [
+                    { advertise: { $eq: true } },
+                    { availability: { $eq: true } }
+                ]
             }
 
             //const result = await productsCollection.find(query).toArray();
             const result2 = await productsCollection.aggregate([
+                { $match: query },
                 {
                     $lookup: {
                         from: 'users',
@@ -214,7 +219,7 @@ async function run() {
                         as: 'seller'
                     }
                 },
-                { $match: query }
+
             ]).toArray();
             res.send(result2);
         })
@@ -222,7 +227,8 @@ async function run() {
         app.get('/categories/:id', async (req, res) => {
             const id = req.params.id;
             const query = {
-                categoryId: id
+                categoryId: id,
+                availability: true
             };
 
             const query2 = {
@@ -248,53 +254,6 @@ async function run() {
 
             res.send({ products, category });
         })
-
-        // app.get('/v2/appointmentOptions', async (req, res) => {
-        //     const date = req.query.date;
-        //     const options = await appointmentOptionCollection.aggregate([
-        //         {
-        //             $lookup: {
-        //                 from: 'bookings',
-        //                 localField: 'name',
-        //                 foreignField: 'treatment',
-        //                 pipeline: [
-        //                     {
-        //                         $match: {
-        //                             $expr: {
-        //                                 $eq: ['$appointmentDate', date]
-        //                             }
-        //                         }
-        //                     }
-        //                 ],
-        //                 as: 'booked'
-        //             }
-        //         },
-        //         {
-        //             $project: {
-        //                 name: 1,
-        //                 price: 1,
-        //                 slots: 1,
-        //                 booked: {
-        //                     $map: {
-        //                         input: '$booked',
-        //                         as: 'book',
-        //                         in: '$$book.slot'
-        //                     }
-        //                 }
-        //             }
-        //         },
-        //         {
-        //             $project: {
-        //                 name: 1,
-        //                 price: 1,
-        //                 slots: {
-        //                     $setDifference: ['$slots', '$booked']
-        //                 }
-        //             }
-        //         }
-        //     ]).toArray();
-        //     res.send(options);
-        // })
 
         app.post('/buyer/bookings', verifyJWT, verifyBuyer, async (req, res) => {
             const booking = req.body;
@@ -348,7 +307,8 @@ async function run() {
                             "$toObjectId": "$productId"
                         },
                         productName: 1,
-                        price: 1
+                        price: 1,
+                        paid: 1
                     }
                 },
                 {
@@ -370,6 +330,62 @@ async function run() {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
             const result = await bookingsCollection.findOne(query);
+            res.send(result);
+        })
+
+        app.post('/create-payment-intent', async (req, res) => {
+            const booking = req.body;
+            const price = booking.price;
+            const amount = price * 100;
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: "usd",
+                "payment_method_types": [
+                    "card"
+                ]
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+
+        })
+
+        app.post('/payments', async (req, res) => {
+            const payment = req.body;
+            const result = await paymentsCollection.insertOne(payment);
+            const id = payment.bookingId;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId
+                }
+            }
+
+            const productId = payment.productId;
+            const filter2 = { _id: ObjectId(productId) };
+            const updatedDoc2 = {
+                $set: {
+                    availability: false
+                }
+            }
+
+            const buyerEmail = payment.buyerEmail;
+
+            const deleteQuery = {
+                $and: [
+                    { buyerEmail: { $ne: buyerEmail } },
+                    { productId: { $eq: productId } }
+                ]
+            };
+
+
+            const deletedResult = await bookingsCollection.deleteMany(deleteQuery);
+
+            const updatedResult = await bookingsCollection.updateOne(filter, updatedDoc);
+            const updatedResult2 = await productsCollection.updateOne(filter2, updatedDoc2);
             res.send(result);
         })
 
