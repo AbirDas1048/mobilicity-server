@@ -40,6 +40,7 @@ async function run() {
         const usersCollection = client.db("mobilicity").collection("users");
         const categoriesCollection = client.db("mobilicity").collection("categories");
         const productsCollection = client.db("mobilicity").collection("products");
+        const bookingsCollection = client.db("mobilicity").collection("bookings");
 
         // Verify Admin
         const verifyAdmin = async (req, res, next) => {
@@ -294,6 +295,43 @@ async function run() {
         //     ]).toArray();
         //     res.send(options);
         // })
+
+        app.post('/buyer/bookings', verifyJWT, verifyBuyer, async (req, res) => {
+            const booking = req.body;
+
+            const query = {
+                buyerEmail: booking.buyerEmail,
+                productId: booking.productId
+            }
+
+            const alreadyBooked = await bookingsCollection.find(query).toArray();
+
+            if (alreadyBooked.length) {
+                const message = `You already booked this product`;
+                return res.send({ acknowledged: false, message });
+            }
+            const result = await bookingsCollection.insertOne(booking);
+            res.send(result);
+        })
+
+        app.get('/buyer/bookingsCheck', async (req, res) => {
+            const booking = req.query;
+            //console.log(booking);
+            const query = {
+                buyerEmail: booking.buyerEmail,
+                productId: booking.productId
+            }
+
+            // console.log(query);
+            const alreadyBooked = await bookingsCollection.findOne(query);
+            if (alreadyBooked) {
+                res.send({ acknowledged: true });
+            }
+            else {
+                res.send({ acknowledged: false });
+            }
+
+        })
 
         app.post('/sellers/products', verifyJWT, verifySeller, async (req, res) => {
             const product = req.body;
