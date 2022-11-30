@@ -333,6 +333,46 @@ async function run() {
 
         })
 
+        app.get('/buyers/orders', verifyJWT, verifyBuyer, async (req, res) => {
+            const email = req.query.email;
+            //console.log(booking);
+            const query = {
+                buyerEmail: email
+            }
+            // 
+            const result = await bookingsCollection.aggregate([
+                { $match: query },
+                {
+                    "$project": {
+                        "productId": {
+                            "$toObjectId": "$productId"
+                        },
+                        productName: 1,
+                        price: 1
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'products',
+                        localField: 'productId',
+                        foreignField: '_id',
+                        as: 'productInfo'
+                    }
+                },
+
+
+            ]).toArray();
+            res.send(result);
+
+        })
+
+        app.get('/buyer/productPayment/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const result = await bookingsCollection.findOne(query);
+            res.send(result);
+        })
+
         app.post('/sellers/products', verifyJWT, verifySeller, async (req, res) => {
             const product = req.body;
             const result = await productsCollection.insertOne(product);
